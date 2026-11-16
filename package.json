@@ -1,0 +1,12 @@
+{
+  "name": "solana-arbitrage-bot",
+  "version": "1.0.0",
+  "description": "Solana arbitrage bot",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@solana/web3.js": "^1.98.0"
+  }
+}
