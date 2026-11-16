@@ -1,7 +1,7 @@
 {
   "name": "solana-arbitrage-bot",
   "version": "1.0.0",
-  "description": "Solana Flash Loan Arbitrage Bot with Web Dashboard",
+  "description": "Solana Flash Loan Arbitrage Bot with Live UI",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
