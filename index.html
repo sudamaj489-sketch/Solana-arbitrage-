@@ -10,7 +10,7 @@
             color: #f8fafc;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
-            padding: 20px;
+            padding: 15px;
             display: flex;
             justify-content: center;
         }
@@ -19,59 +19,90 @@
             max-width: 450px;
         }
         .header {
+            background: #111827;
+            padding: 15px;
+            border-radius: 16px;
+            border: 1px solid #1f2937;
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .header-top {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: #111827;
-            padding: 15px;
-            border-radius: 12px;
-            border: 1px solid #1f2937;
-            margin-bottom: 20px;
         }
-        .title h2 { margin: 0; font-size: 18px; color: #38bdf8; }
-        .title p { margin: 2px 0 0 0; font-size: 11px; color: #9ca3af; }
+        .title h2 { margin: 0; font-size: 16px; color: #38bdf8; }
+        .title p { margin: 2px 0 0 0; font-size: 10px; color: #9ca3af; }
         .badge {
             background: rgba(34, 197, 94, 0.1);
             color: #4ade80;
-            padding: 6px 12px;
+            padding: 4px 10px;
             border-radius: 20px;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: bold;
             border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+        .connect-btn {
+            background: linear-gradient(135deg, #22c55e, #10b981);
+            color: #0b0f19;
+            font-weight: bold;
+            border: none;
+            width: 100%;
+            padding: 10px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 13px;
         }
         .card {
             background: #111827;
             border: 1px solid #1f2937;
             border-radius: 16px;
-            padding: 20px;
+            padding: 18px;
             margin-bottom: 15px;
         }
-        .card-title { font-size: 13px; color: #9ca3af; margin-bottom: 5px; }
-        .card-value { font-size: 26px; font-weight: bold; color: #fff; }
-        .sub-text { font-size: 12px; color: #38bdf8; margin-top: 5px; }
+        .card-title { font-size: 12px; color: #9ca3af; margin-bottom: 5px; }
+        .card-value { font-size: 24px; font-weight: bold; color: #fff; }
+        .sub-text { font-size: 11px; color: #38bdf8; margin-top: 5px; }
+        .input-box {
+            width: 100%;
+            background: #030712;
+            border: 1px solid #374151;
+            border-radius: 8px;
+            padding: 10px;
+            color: #fff;
+            font-size: 12px;
+            margin-top: 10px;
+            box-sizing: border-box;
+        }
         .btn {
             background: linear-gradient(135deg, #22c55e, #10b981);
-            color: #000;
+            color: #0b0f19;
             font-weight: bold;
             border: none;
             width: 100%;
-            padding: 12px;
+            padding: 10px;
             border-radius: 10px;
             cursor: pointer;
             margin-top: 10px;
-            font-size: 14px;
+            font-size: 13px;
         }
+        #withdraw-msg { font-size: 11px; margin-top: 8px; text-align: center; color: #4ade80; }
     </style>
 </head>
 <body>
 
     <div class="container">
         <div class="header">
-            <div class="title">
-                <h2>⚡ SOLANA ARBITRAGE PRO</h2>
-                <p>Atomic flash loan executor · mainnet-beta</p>
+            <div class="header-top">
+                <div class="title">
+                    <h2>⚡ SOLANA ARBITRAGE PRO</h2>
+                    <p>Atomic flash loan executor</p>
+                </div>
+                <div class="badge">🟢 Live</div>
             </div>
-            <div class="badge" id="bot-status">🟢 Live</div>
+            <button class="connect-btn" id="wallet-btn">🔗 Connect Wallet</button>
         </div>
 
         <div class="card">
@@ -82,15 +113,16 @@
 
         <div class="card">
             <div class="card-title">💰 ACCUMULATED PROFIT</div>
-            <div class="card-value">$13,166.43</div>
-            <div class="sub-text">📈 Real-time tracking active</div>
-            <button class="btn">Withdraw Profits</button>
+            <div class="card-value" id="profit-val">$0.00</div>
+            <input type="text" id="withdraw-addr" class="input-box" placeholder="Enter your Solana Wallet Address (SOL)...">
+            <button class="btn" onclick="requestWithdrawal()">Withdraw Profits</button>
+            <div id="withdraw-msg"></div>
         </div>
 
         <div class="card">
             <div class="card-title">⛽ SOL GAS BALANCE</div>
-            <div class="card-value">4.8202 <span style="font-size: 16px; color: #9ca3af;">SOL</span></div>
-            <div class="sub-text">Reserve healthy · target 5 SOL</div>
+            <div class="card-value"><span id="gas-val">0.00</span> <span style="font-size: 14px; color: #9ca3af;">SOL</span></div>
+            <div class="sub-text" id="wallet-status-text">Checking blockchain...</div>
         </div>
     </div>
 
@@ -101,9 +133,44 @@
                 const data = await response.json();
                 
                 document.getElementById('slot-val').innerText = data.lastSlot;
-                document.getElementById('spread-val').innerText = `Live Spread: ${data.lastSpread} | Status: ${data.status}`;
+                document.getElementById('spread-val').innerText = `Live Spread: ${data.lastSpread}`;
+                document.getElementById('profit-val').innerText = data.profit;
+                document.getElementById('gas-val').innerText = data.gasBalance;
+                
+                if (data.walletAddress && data.walletAddress !== "Not Connected") {
+                    document.getElementById('wallet-btn').innerText = data.walletAddress.substring(0, 4) + '...' + data.walletAddress.slice(-4);
+                    document.getElementById('wallet-status-text').innerText = "Status: " + data.walletState;
+                } else {
+                    document.getElementById('wallet-status-text').innerText = "Running in Read-Only Mode (Add PRIVATE_KEY in Render)";
+                }
             } catch (e) {
                 console.error("Failed to fetch live data", e);
+            }
+        }
+
+        async function requestWithdrawal() {
+            const addr = document.getElementById('withdraw-addr').value;
+            const msgBox = document.getElementById('withdraw-msg');
+            
+            if(!addr) {
+                msgBox.style.color = "#f87171";
+                msgBox.innerText = "Please enter a valid wallet address!";
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/withdraw', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ destinationAddress: addr })
+                });
+                const result = await res.json();
+                
+                msgBox.style.color = "#4ade80";
+                msgBox.innerText = result.message;
+            } catch (err) {
+                msgBox.style.color = "#f87171";
+                msgBox.innerText = "Withdrawal request failed!";
             }
         }
 
