@@ -55,10 +55,10 @@
             font-weight: bold;
             border: none;
             width: 100%;
-            padding: 8px;
+            padding: 10px;
             border-radius: 8px;
             cursor: pointer;
-            font-size: 12px;
+            font-size: 13px;
         }
         .control-group {
             display: flex;
@@ -132,13 +132,13 @@
                 <div class="badge" id="status-badge">🔴 Stopped</div>
             </div>
             
-            <!-- यहाँ बोट को ON/OFF करने के लिए बटन्स हैं -->
             <div class="control-group">
-                <button class="start-btn" onclick="controlBot('start')">▶ START BOT</button>
-                <button class="stop-btn" onclick="controlBot('stop')">⏹ STOP BOT</button>
+                <button class="start-btn" onclick="controlBot('start')">▶ START</button>
+                <button class="stop-btn" onclick="controlBot('stop')">⏹ STOP</button>
             </div>
 
-            <button class="connect-btn" id="wallet-btn">🔗 Wallet Not Connected</button>
+            <!-- रियल-टाइम वॉलेट कनेक्ट/डिस्कनेक्ट बटन -->
+            <button class="connect-btn" id="wallet-btn" onclick="toggleWalletConnection()">🔗 Connect Real Wallet</button>
         </div>
 
         <div class="card">
@@ -150,7 +150,7 @@
         <div class="card">
             <div class="card-title">💰 NET ESTIMATED PROFIT</div>
             <div class="card-value" id="profit-val">$0.00</div>
-            <input type="text" id="withdraw-addr" class="input-box" placeholder="Enter your Solana Wallet Address (SOL)...">
+            <input type="text" id="withdraw-addr" class="input-box" placeholder="Enter withdrawal Solana address...">
             <button class="btn" onclick="requestWithdrawal()">Withdraw Profits</button>
             <div id="withdraw-msg"></div>
         </div>
@@ -158,11 +158,57 @@
         <div class="card">
             <div class="card-title">⛽ SOL GAS BALANCE</div>
             <div class="card-value"><span id="gas-val">0.00</span> <span style="font-size: 14px; color: #9ca3af;">SOL</span></div>
-            <div class="sub-text" id="wallet-status-text">Checking blockchain...</div>
+            <div class="sub-text" id="wallet-status-text">Wallet not linked</div>
         </div>
     </div>
 
     <script>
+        let connectedPublicKey = null;
+
+        async function toggleWalletConnection() {
+            const btn = document.getElementById('wallet-btn');
+            
+            if (connectedPublicKey) {
+                // डिस्कनेक्ट करने की प्रोसेस
+                try {
+                    const provider = window.solana || window.solflare;
+                    if (provider && provider.disconnect) {
+                        await provider.disconnect();
+                    }
+                    connectedPublicKey = null;
+                    btn.innerText = "🔗 Connect Real Wallet";
+                    document.getElementById('wallet-status-text').innerText = "Wallet Disconnected ❌";
+                } catch (e) {
+                    console.error("Disconnect error", e);
+                }
+                return;
+            }
+
+            // कनेक्ट करने की प्रोसेस (Phantom / Solflare / Trust Wallet DApp Browser)
+            try {
+                const provider = window.solana || window.solflare;
+                
+                if (!provider) {
+                    alert("No Solana wallet found! Please open this in Phantom, Solflare, or Trust Wallet DApp browser.");
+                    return;
+                }
+
+                const response = await provider.connect();
+                connectedPublicKey = response.publicKey.toString();
+                
+                const shortAddr = connectedPublicKey.substring(0, 4) + '...' + connectedPublicKey.slice(-4);
+                btn.innerText = "🔌 Disconnect (" + shortAddr + ")";
+                document.getElementById('wallet-status-text').innerText = "Connected: " + shortAddr;
+                
+                // ऑटोमैटिक विड्रॉल बॉक्स में भी एड्रेस भर जाएगा
+                document.getElementById('withdraw-addr').value = connectedPublicKey;
+
+            } catch (err) {
+                console.error("Connection failed", err);
+                alert("Wallet connection rejected or failed.");
+            }
+        }
+
         async function updateDashboard() {
             try {
                 const response = await fetch('/api/status');
@@ -171,7 +217,11 @@
                 document.getElementById('slot-val').innerText = data.lastSlot;
                 document.getElementById('spread-val').innerText = `Live Spread: ${data.lastSpread}`;
                 document.getElementById('profit-val').innerText = data.netProfit;
-                document.getElementById('gas-val').innerText = data.gasBalance;
+                
+                // अगर फ्रंटएंड पर वॉलेट कनेक्ट नहीं है, तब सर्वर वाला बैलेंस दिखाएगा
+                if (!connectedPublicKey) {
+                    document.getElementById('gas-val').innerText = data.gasBalance;
+                }
                 
                 const badge = document.getElementById('status-badge');
                 badge.innerText = data.status;
@@ -180,13 +230,6 @@
                 } else {
                     badge.classList.remove('active');
                 }
-
-                if (data.walletAddress && data.walletAddress !== "Not Connected") {
-                    document.getElementById('wallet-btn').innerText = "Wallet: " + data.walletAddress.substring(0, 4) + '...' + data.walletAddress.slice(-4);
-                    document.getElementById('wallet-status-text').innerText = "Status: " + data.walletState;
-                } else {
-                    document.getElementById('wallet-status-text').innerText = "Read-Only Mode (Add PRIVATE_KEY in Render)";
-                }
             } catch (e) {
                 console.error("Failed to fetch live data", e);
             }
@@ -194,12 +237,11 @@
 
         async function controlBot(action) {
             try {
-                const res = await fetch('/api/control', {
+                await fetch('/api/control', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: action })
                 });
-                const result = await res.json();
                 updateDashboard();
             } catch (err) {
                 console.error("Failed to control bot", err);
